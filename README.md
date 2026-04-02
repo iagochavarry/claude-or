@@ -8,10 +8,10 @@ Route Claude Code through OpenRouter to alternative models. One command, zero co
 
 ```bash
 # From GitHub
-pipx install 'claude-or @ git+https://github.com/your-org/claude-or.git'
+pipx install 'claude-or @ git+https://github.com/iagochavarry/claude-or.git'
 
 # Or with pip
-pip install 'claude-or @ git+https://github.com/your-org/claude-or.git'
+pip install 'claude-or @ git+https://github.com/iagochavarry/claude-or.git'
 ```
 
 ### 2. Configure
