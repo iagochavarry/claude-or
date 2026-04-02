@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "claude-or"
+version = "0.1.0"
+description = "Route Claude Code through OpenRouter to alternative models"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "litellm[proxy]",
+    "python-dotenv",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/claude_or"]
+
+[project.scripts]
+claude-or = "claude_or.cli:main"
