@@ -6,6 +6,8 @@ build-backend = "hatchling.build"
 name = "claude-or"
 version = "0.1.0"
 description = "Route Claude Code through OpenRouter to alternative models"
+license = "MIT"
+authors = [{ name = "Iago Chavarry", email = "iagochavarry20@gmail.com" }]
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
