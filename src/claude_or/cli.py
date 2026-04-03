@@ -179,36 +179,34 @@ def main():
         run_server()
         return
 
-    # Auto-launch mode: proxy in daemon thread, claude as subprocess
+    # Auto-launch mode: proxy as subprocess (silent), claude as subprocess
+    proxy_proc = subprocess.Popen(
+        [sys.executable, "-m", "litellm.proxy.proxy_cli", "--config", config_path, "--port", str(port)],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
     claude_proc = None
 
     def _signal_handler(sig, frame):
         if claude_proc and claude_proc.poll() is None:
             claude_proc.terminate()
+        proxy_proc.terminate()
         _cleanup()
         sys.exit(0)
 
     signal.signal(signal.SIGINT, _signal_handler)
     signal.signal(signal.SIGTERM, _signal_handler)
 
-    # Start proxy in daemon thread
-    proxy_thread = threading.Thread(
-        target=_run_proxy, args=(config_path, port),
-        daemon=True,
-    )
-    proxy_thread.start()
-
-    # Inject custom logger after proxy starts
-    threading.Thread(target=_post_init, args=(args.verbose,), daemon=True).start()
-
     # Wait for proxy to be ready
     if not _wait_for_port(port):
         print(f"{RED}{BOLD}Error: Proxy failed to start within 30 seconds.{RESET}")
+        proxy_proc.terminate()
         sys.exit(1)
 
     # Launch Claude Code
     claude_proc = _launch_claude(port)
     if claude_proc is None:
+        proxy_proc.terminate()
         sys.exit(1)
 
     # Wait for Claude to exit
@@ -222,6 +220,11 @@ def main():
             claude_proc.kill()
         returncode = 130
 
+    proxy_proc.terminate()
+    try:
+        proxy_proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proxy_proc.kill()
     _cleanup()
     sys.exit(returncode)
 
