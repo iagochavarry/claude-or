@@ -2,16 +2,16 @@
 
 Route Claude Code through OpenRouter to alternative models. One command, zero config files.
 
+## Why?
+
+OpenRouter uses the OpenAI standard, but Claude Code expects the Anthropic API format. You can't just point Claude Code at OpenRouter and have it work. `claude-or` spins up a local proxy that translates between the two formats, letting you run Claude Code powered by any model on OpenRouter.
+
 ## Quick Start
 
 ### 1. Install
 
 ```bash
-# From GitHub
-pipx install 'claude-or @ git+https://github.com/iagochavarry/claude-or.git'
-
-# Or with pip
-pip install 'claude-or @ git+https://github.com/iagochavarry/claude-or.git'
+pip install claude-or
 ```
 
 ### 2. Configure
