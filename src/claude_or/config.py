@@ -18,12 +18,12 @@ OPENROUTER_API_KEY=
 # CLAUDE_HAIKU_MODEL=openrouter/moonshotai/kimi-k2.5
 
 # Optional: provider pinning (default: Together, set empty to disable)
-# OPENROUTER_PROVIDER=Together
+# OPENROUTER_PROVIDER=Fireworks
 
 # Optional: proxy port (default: 4000)
 # CLAUDE_OR_PORT=4000
 """
-DEFAULT_PROVIDER = "Together"
+DEFAULT_PROVIDER = "Fireworks"
 DEFAULT_PORT = 4000
 
 # Claude model names grouped by tier

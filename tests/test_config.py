@@ -148,8 +148,8 @@ class TestPort:
 class TestProviderConfig:
     """AC: Provider defaults to Together, can be changed or disabled."""
 
-    def test_default_provider_is_together(self):
-        assert get_provider_config() == DEFAULT_PROVIDER
+    def test_default_provider_is_fireworks(self):
+        assert get_provider_config() == "Fireworks"
 
     def test_custom_provider(self, monkeypatch):
         monkeypatch.setenv("OPENROUTER_PROVIDER", "Fireworks")
@@ -218,7 +218,7 @@ class TestYamlGeneration:
             data = yaml.safe_load(f)
         for entry in data["model_list"]:
             provider = entry["litellm_params"]["extra_body"]["provider"]
-            assert "Together" in provider["order"]
+            assert "Fireworks" in provider["order"]
             assert provider["allow_fallbacks"] is True
 
     def test_no_provider_when_disabled(self, monkeypatch):

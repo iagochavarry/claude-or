@@ -13,6 +13,9 @@ dependencies = [
     "python-dotenv",
 ]
 
+[project.optional-dependencies]
+test = ["pytest", "requests", "pyyaml"]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/claude_or"]
 
