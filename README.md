@@ -24,14 +24,36 @@ OPENROUTER_API_KEY=sk-or-v1-your-key-here
 
 ### 3. Run
 
+**Full mode (proxy + Claude Code):**
 ```bash
 claude-or
 ```
 
-Then in another terminal:
-
+**Proxy only (start proxy in background):**
 ```bash
-ANTHROPIC_BASE_URL=http://localhost:4000 ANTHROPIC_AUTH_TOKEN=sk-placeholder claude
+claude-or --proxy-only
+# Then in another terminal:
+claude-or --claude-only
+```
+
+**Claude only (connect to existing proxy):**
+```bash
+claude-or --claude-only
+```
+
+**Pass additional flags to Claude Code:**
+```bash
+claude-or -- --debug --allowed-tools Bash,Read
+```
+
+**Headless mode (single prompt, no TUI):**
+```bash
+claude-or -- -p "Explain this codebase"
+```
+
+**Quickly understand any codebase:**
+```bash
+claude-or -- -p "Explain this codebase"
 ```
 
 That's it. All Claude model requests are now routed through OpenRouter.
@@ -52,8 +74,11 @@ All configuration is via environment variables or `.env` file:
 ### CLI Flags
 
 ```bash
-claude-or -p 4001      # custom port
-claude-or -v           # verbose logging
+claude-or -p 4001           # custom port
+claude-or -v                # verbose logging
+claude-or --proxy-only      # proxy only, no Claude launch
+claude-or --claude-only     # Claude only, connect to existing proxy
+claude-or -- --debug        # pass --debug to Claude Code
 ```
 
 ## How It Works

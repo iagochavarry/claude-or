@@ -26,11 +26,11 @@ OPENROUTER_API_KEY=
 DEFAULT_PROVIDER = "Fireworks"
 DEFAULT_PORT = 4000
 
-# Claude model names grouped by tier
-MODEL_TIERS = {
-    "sonnet": ["claude-sonnet-4-20250514", "claude-sonnet-4-6"],
-    "opus": ["claude-opus-4-20250514", "claude-opus-4-6"],
-    "haiku": ["claude-haiku-4-5-20251001", "claude-haiku-4-5"],
+# Wildcard patterns per tier — catches any Claude model variant
+MODEL_TIER_PATTERNS = {
+    "sonnet": "claude-sonnet*",
+    "opus": "claude-opus*",
+    "haiku": "claude-haiku*",
 }
 
 # Env var name for each tier
@@ -72,13 +72,12 @@ def load_env():
 
 
 def get_model_mapping():
-    """Return dict of {claude_model_name: backend_model} from env vars."""
+    """Return dict of {wildcard_pattern: backend_model} from env vars."""
     mapping = {}
-    for tier, names in MODEL_TIERS.items():
+    for tier, pattern in MODEL_TIER_PATTERNS.items():
         env_var = TIER_ENV_VARS[tier]
         backend = os.environ.get(env_var, DEFAULT_MODEL)
-        for name in names:
-            mapping[name] = backend
+        mapping[pattern] = backend
     return mapping
 
 

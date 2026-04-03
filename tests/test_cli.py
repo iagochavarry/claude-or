@@ -204,6 +204,18 @@ class TestProxyOnlyFlag:
         assert "--proxy-only" in result.stdout
 
 
+class TestClaudeOnlyFlag:
+    """AC: --claude-only flag connects to existing proxy without starting one."""
+
+    def test_help_shows_claude_only_flag(self):
+        result = run_claude_or("--help")
+        assert "--claude-only" in result.stdout
+
+    def test_mutually_exclusive_with_proxy_only(self):
+        result = run_claude_or("--claude-only", "--proxy-only")
+        assert result.returncode != 0
+
+
 # ── Story: .env bootstrapping via CLI ───────────────────────────────────
 
 
@@ -279,3 +291,15 @@ class TestLaunchClaude:
             env = call_kwargs[1]["env"]
             assert env["ANTHROPIC_BASE_URL"] == "http://localhost:8080"
             assert env["ANTHROPIC_AUTH_TOKEN"] == "sk-placeholder"
+
+    def test_forwards_extra_args(self, monkeypatch):
+        from unittest.mock import MagicMock, patch
+
+        from claude_or.cli import _launch_claude
+
+        monkeypatch.setattr("shutil.which", lambda cmd: "/usr/bin/claude")
+        mock_popen = MagicMock()
+        with patch("claude_or.cli.subprocess.Popen", return_value=mock_popen) as popen_call:
+            _launch_claude(4000, ["--headless", "-p", "fix the bug"])
+            cmd = popen_call.call_args[0][0]
+            assert cmd == ["/usr/bin/claude", "--headless", "-p", "fix the bug"]

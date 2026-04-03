@@ -72,7 +72,7 @@ def _wait_for_port(port, timeout=30):
     return False
 
 
-def _launch_claude(port):
+def _launch_claude(port, extra_args=None):
     """Launch Claude Code pointing at our proxy. Returns the Popen object or None."""
     claude_bin = shutil.which("claude")
     if not claude_bin:
@@ -84,13 +84,14 @@ def _launch_claude(port):
     env["ANTHROPIC_BASE_URL"] = f"http://localhost:{port}"
     env["ANTHROPIC_AUTH_TOKEN"] = "sk-placeholder"
 
-    return subprocess.Popen([claude_bin], env=env)
+    cmd = [claude_bin] + (extra_args or [])
+    return subprocess.Popen(cmd, env=env)
 
 
 def _run_proxy(config_path, port):
     """Run the LiteLLM proxy server (blocking, meant for a daemon thread)."""
     from litellm.proxy.proxy_cli import run_server
-    sys.argv = ["litellm", "--config", config_path, "--port", str(port)]
+    sys.argv = ["litellm", "--config", config_path, "--host", "127.0.0.1", "--port", str(port)]
     run_server()
 
 
@@ -107,11 +108,37 @@ def main():
         "-v", "--verbose", action="store_true",
         help="show litellm debug logs",
     )
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
         "--proxy-only", action="store_true",
         help="only start the proxy, don't launch Claude Code",
     )
-    args = parser.parse_args()
+    mode.add_argument(
+        "--claude-only", action="store_true",
+        help="skip starting the proxy, connect to an existing one",
+    )
+    args, claude_args = parser.parse_known_args()
+    # Everything after -- is forwarded to Claude Code
+    if "--" in sys.argv:
+        idx = sys.argv.index("--")
+        claude_args = sys.argv[idx + 1:]
+
+    # Claude-only mode: just launch Claude against an existing proxy
+    if args.claude_only:
+        port = args.port or int(os.environ.get("CLAUDE_OR_PORT", DEFAULT_PORT))
+        print(f"\n{GREEN}{BOLD}claude-or{RESET} — connecting to proxy on {CYAN}http://localhost:{port}{RESET}\n")
+        if not _wait_for_port(port, timeout=5):
+            print(f"{RED}{BOLD}Error: No proxy found on port {port}.{RESET}")
+            print(f"Start one with: {DIM}claude-or --proxy-only{RESET}\n")
+            sys.exit(1)
+        claude_proc = _launch_claude(port, claude_args)
+        if claude_proc is None:
+            sys.exit(1)
+        try:
+            sys.exit(claude_proc.wait())
+        except KeyboardInterrupt:
+            claude_proc.terminate()
+            sys.exit(130)
 
     # Bootstrap .env if none exists
     if bootstrap_env():
@@ -175,22 +202,33 @@ def main():
         threading.Thread(target=_post_init, args=(args.verbose,), daemon=True).start()
 
         from litellm.proxy.proxy_cli import run_server
-        sys.argv = ["litellm", "--config", config_path, "--port", str(port)]
+        sys.argv = ["litellm", "--config", config_path, "--host", "127.0.0.1", "--port", str(port)]
         run_server()
         return
 
     # Auto-launch mode: proxy as subprocess (silent), claude as subprocess
     proxy_proc = subprocess.Popen(
-        [sys.executable, "-m", "litellm.proxy.proxy_cli", "--config", config_path, "--port", str(port)],
+        [sys.executable, "-m", "litellm.proxy.proxy_cli", "--config", config_path, "--host", "127.0.0.1", "--port", str(port)],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
     claude_proc = None
 
+    def _kill_proxy():
+        """Ensure proxy subprocess is terminated on any exit."""
+        if proxy_proc.poll() is None:
+            proxy_proc.terminate()
+            try:
+                proxy_proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proxy_proc.kill()
+
+    atexit.register(_kill_proxy)
+
     def _signal_handler(sig, frame):
         if claude_proc and claude_proc.poll() is None:
             claude_proc.terminate()
-        proxy_proc.terminate()
+        _kill_proxy()
         _cleanup()
         sys.exit(0)
 
@@ -204,7 +242,7 @@ def main():
         sys.exit(1)
 
     # Launch Claude Code
-    claude_proc = _launch_claude(port)
+    claude_proc = _launch_claude(port, claude_args)
     if claude_proc is None:
         proxy_proc.terminate()
         sys.exit(1)
@@ -220,11 +258,7 @@ def main():
             claude_proc.kill()
         returncode = 130
 
-    proxy_proc.terminate()
-    try:
-        proxy_proc.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        proxy_proc.kill()
+    _kill_proxy()
     _cleanup()
     sys.exit(returncode)
 

@@ -1,7 +1,7 @@
 """Tests for claude_or.config — model mapping, env loading, YAML generation.
 
 User Stories Covered:
-  1. "I just want to run it" — default config generates valid YAML with all 6 model names
+  1. "I just want to run it" — default config generates valid YAML with wildcard patterns
   2. "I want to use a different model" — env var overrides change the backend per tier
   3. "I want a different port" — CLAUDE_OR_PORT env var is respected
   4. "I want to disable provider pinning" — empty OPENROUTER_PROVIDER omits provider block
@@ -21,7 +21,7 @@ from claude_or.config import (
     DEFAULT_PORT,
     DEFAULT_PROVIDER,
     ENV_TEMPLATE,
-    MODEL_TIERS,
+    MODEL_TIER_PATTERNS,
     bootstrap_env,
     generate_config_yaml,
     get_model_mapping,
@@ -33,7 +33,7 @@ from claude_or.config import (
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 
-ALL_CLAUDE_NAMES = [name for names in MODEL_TIERS.values() for name in names]
+ALL_TIER_PATTERNS = list(MODEL_TIER_PATTERNS.values())
 
 
 @pytest.fixture(autouse=True)
@@ -54,31 +54,28 @@ def clean_env(monkeypatch):
 
 
 class TestDefaultModelMapping:
-    """AC: All 6 Claude model names map to the default backend model."""
+    """AC: All 3 tier wildcard patterns map to the default backend model."""
 
-    def test_returns_all_six_claude_model_names(self):
+    def test_returns_all_three_tier_patterns(self):
         mapping = get_model_mapping()
-        assert set(mapping.keys()) == set(ALL_CLAUDE_NAMES)
+        assert set(mapping.keys()) == set(ALL_TIER_PATTERNS)
 
     def test_all_default_to_kimi_k25(self):
         mapping = get_model_mapping()
-        for name, backend in mapping.items():
-            assert backend == DEFAULT_MODEL, f"{name} should default to {DEFAULT_MODEL}"
+        for pattern, backend in mapping.items():
+            assert backend == DEFAULT_MODEL, f"{pattern} should default to {DEFAULT_MODEL}"
 
-    def test_sonnet_tier_has_both_variants(self):
+    def test_has_sonnet_pattern(self):
         mapping = get_model_mapping()
-        assert "claude-sonnet-4-20250514" in mapping
-        assert "claude-sonnet-4-6" in mapping
+        assert "claude-sonnet*" in mapping
 
-    def test_opus_tier_has_both_variants(self):
+    def test_has_opus_pattern(self):
         mapping = get_model_mapping()
-        assert "claude-opus-4-20250514" in mapping
-        assert "claude-opus-4-6" in mapping
+        assert "claude-opus*" in mapping
 
-    def test_haiku_tier_has_both_variants(self):
+    def test_has_haiku_pattern(self):
         mapping = get_model_mapping()
-        assert "claude-haiku-4-5-20251001" in mapping
-        assert "claude-haiku-4-5" in mapping
+        assert "claude-haiku*" in mapping
 
 
 # ── Story 2: Override model per tier ─────────────────────────────────────
@@ -91,26 +88,23 @@ class TestModelOverrides:
         monkeypatch.setenv("CLAUDE_SONNET_MODEL", "openrouter/google/gemini-2.5-flash")
         mapping = get_model_mapping()
 
-        assert mapping["claude-sonnet-4-20250514"] == "openrouter/google/gemini-2.5-flash"
-        assert mapping["claude-sonnet-4-6"] == "openrouter/google/gemini-2.5-flash"
+        assert mapping["claude-sonnet*"] == "openrouter/google/gemini-2.5-flash"
         # Other tiers unchanged
-        assert mapping["claude-opus-4-6"] == DEFAULT_MODEL
-        assert mapping["claude-haiku-4-5"] == DEFAULT_MODEL
+        assert mapping["claude-opus*"] == DEFAULT_MODEL
+        assert mapping["claude-haiku*"] == DEFAULT_MODEL
 
     def test_override_opus_only(self, monkeypatch):
         monkeypatch.setenv("CLAUDE_OPUS_MODEL", "openrouter/deepseek/deepseek-r1")
         mapping = get_model_mapping()
 
-        assert mapping["claude-opus-4-20250514"] == "openrouter/deepseek/deepseek-r1"
-        assert mapping["claude-opus-4-6"] == "openrouter/deepseek/deepseek-r1"
-        assert mapping["claude-sonnet-4-6"] == DEFAULT_MODEL
+        assert mapping["claude-opus*"] == "openrouter/deepseek/deepseek-r1"
+        assert mapping["claude-sonnet*"] == DEFAULT_MODEL
 
     def test_override_haiku_only(self, monkeypatch):
         monkeypatch.setenv("CLAUDE_HAIKU_MODEL", "openrouter/meta/llama-4-scout")
         mapping = get_model_mapping()
 
-        assert mapping["claude-haiku-4-5-20251001"] == "openrouter/meta/llama-4-scout"
-        assert mapping["claude-haiku-4-5"] == "openrouter/meta/llama-4-scout"
+        assert mapping["claude-haiku*"] == "openrouter/meta/llama-4-scout"
 
     def test_override_all_tiers(self, monkeypatch):
         monkeypatch.setenv("CLAUDE_SONNET_MODEL", "openrouter/model-a")
@@ -118,9 +112,9 @@ class TestModelOverrides:
         monkeypatch.setenv("CLAUDE_HAIKU_MODEL", "openrouter/model-c")
         mapping = get_model_mapping()
 
-        assert mapping["claude-sonnet-4-6"] == "openrouter/model-a"
-        assert mapping["claude-opus-4-6"] == "openrouter/model-b"
-        assert mapping["claude-haiku-4-5"] == "openrouter/model-c"
+        assert mapping["claude-sonnet*"] == "openrouter/model-a"
+        assert mapping["claude-opus*"] == "openrouter/model-b"
+        assert mapping["claude-haiku*"] == "openrouter/model-c"
 
 
 # ── Story 3: Custom port ────────────────────────────────────────────────
@@ -189,11 +183,11 @@ class TestYamlGeneration:
             data = yaml.safe_load(f)
         assert isinstance(data, dict)
 
-    def test_contains_all_six_models(self, config_path):
+    def test_contains_all_three_tier_patterns(self, config_path):
         with open(config_path) as f:
             data = yaml.safe_load(f)
         model_names = [entry["model_name"] for entry in data["model_list"]]
-        assert set(model_names) == set(ALL_CLAUDE_NAMES)
+        assert set(model_names) == set(ALL_TIER_PATTERNS)
 
     def test_all_entries_use_api_key(self, config_path):
         with open(config_path) as f:
