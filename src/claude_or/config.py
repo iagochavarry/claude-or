@@ -7,6 +7,22 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 DEFAULT_MODEL = "openrouter/moonshotai/kimi-k2.5"
+
+ENV_TEMPLATE = """\
+# Required — get your key at https://openrouter.ai/keys
+OPENROUTER_API_KEY=
+
+# Optional: override which model each Claude tier routes to
+# CLAUDE_SONNET_MODEL=openrouter/moonshotai/kimi-k2.5
+# CLAUDE_OPUS_MODEL=openrouter/moonshotai/kimi-k2.5
+# CLAUDE_HAIKU_MODEL=openrouter/moonshotai/kimi-k2.5
+
+# Optional: provider pinning (default: Together, set empty to disable)
+# OPENROUTER_PROVIDER=Together
+
+# Optional: proxy port (default: 4000)
+# CLAUDE_OR_PORT=4000
+"""
 DEFAULT_PROVIDER = "Together"
 DEFAULT_PORT = 4000
 
@@ -23,6 +39,23 @@ TIER_ENV_VARS = {
     "opus": "CLAUDE_OPUS_MODEL",
     "haiku": "CLAUDE_HAIKU_MODEL",
 }
+
+
+def bootstrap_env():
+    """Create a starter .env file if none exists anywhere.
+
+    Returns True if a file was created, False otherwise.
+    """
+    cwd_env = Path.cwd() / ".env"
+    if cwd_env.exists():
+        return False
+
+    global_env = Path.home() / ".claude-or" / ".env"
+    if global_env.exists():
+        return False
+
+    cwd_env.write_text(ENV_TEMPLATE)
+    return True
 
 
 def load_env():

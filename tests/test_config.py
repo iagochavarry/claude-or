@@ -20,7 +20,9 @@ from claude_or.config import (
     DEFAULT_MODEL,
     DEFAULT_PORT,
     DEFAULT_PROVIDER,
+    ENV_TEMPLATE,
     MODEL_TIERS,
+    bootstrap_env,
     generate_config_yaml,
     get_model_mapping,
     get_port,
@@ -306,3 +308,69 @@ class TestEnvFileLoading:
         monkeypatch.chdir(tmp_path)
         load_env()
         assert os.environ.get("OPENROUTER_API_KEY") == "sk-or-from-shell"
+
+
+# ── Story 7: .env bootstrapping ─────────────────────────────────────────
+
+
+class TestBootstrapEnv:
+    """AC: Creates a starter .env when none exists, skips if one is found."""
+
+    def test_creates_env_when_none_exists(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr("claude_or.config.Path.home", lambda: tmp_path / "fakehome")
+        result = bootstrap_env()
+        assert result is True
+        assert (tmp_path / ".env").exists()
+
+    def test_returns_true_when_created(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr("claude_or.config.Path.home", lambda: tmp_path / "fakehome")
+        assert bootstrap_env() is True
+
+    def test_env_has_uncommented_api_key(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr("claude_or.config.Path.home", lambda: tmp_path / "fakehome")
+        bootstrap_env()
+        content = (tmp_path / ".env").read_text()
+        # Should have an uncommented OPENROUTER_API_KEY= line
+        assert "\nOPENROUTER_API_KEY=" in content or content.startswith("OPENROUTER_API_KEY=")
+
+    def test_env_has_commented_optional_vars(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr("claude_or.config.Path.home", lambda: tmp_path / "fakehome")
+        bootstrap_env()
+        content = (tmp_path / ".env").read_text()
+        assert "# CLAUDE_SONNET_MODEL=" in content
+        assert "# CLAUDE_OPUS_MODEL=" in content
+        assert "# CLAUDE_HAIKU_MODEL=" in content
+        assert "# OPENROUTER_PROVIDER=" in content
+        assert "# CLAUDE_OR_PORT=" in content
+
+    def test_content_matches_template(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr("claude_or.config.Path.home", lambda: tmp_path / "fakehome")
+        bootstrap_env()
+        content = (tmp_path / ".env").read_text()
+        assert content == ENV_TEMPLATE
+
+    def test_no_create_when_cwd_env_exists(self, tmp_path, monkeypatch):
+        (tmp_path / ".env").write_text("OPENROUTER_API_KEY=existing\n")
+        monkeypatch.chdir(tmp_path)
+        result = bootstrap_env()
+        assert result is False
+        # Original content unchanged
+        assert (tmp_path / ".env").read_text() == "OPENROUTER_API_KEY=existing\n"
+
+    def test_no_create_when_home_env_exists(self, tmp_path, monkeypatch):
+        fakehome = tmp_path / "fakehome"
+        claude_or_dir = fakehome / ".claude-or"
+        claude_or_dir.mkdir(parents=True)
+        (claude_or_dir / ".env").write_text("OPENROUTER_API_KEY=from-home\n")
+        monkeypatch.setattr("claude_or.config.Path.home", lambda: fakehome)
+        cwd = tmp_path / "project"
+        cwd.mkdir()
+        monkeypatch.chdir(cwd)
+        result = bootstrap_env()
+        assert result is False
+        assert not (cwd / ".env").exists()

@@ -12,19 +12,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Install in editable mode
 pip install -e .
 
-# Run
+# Run (starts proxy + launches Claude Code automatically)
 claude-or
 
 # Run with verbose logging
 claude-or -v
+
+# Run proxy only (don't launch Claude Code)
+claude-or --proxy-only
 ```
 
-Requires a `.env` file with `OPENROUTER_API_KEY=sk-or-...` (see `.env.example`).
+On first run without a `.env` file, `claude-or` bootstraps one with all available options commented out, then exits so you can add your API key.
 
-To use with Claude Code:
-```bash
-ANTHROPIC_BASE_URL=http://localhost:4000 ANTHROPIC_AUTH_TOKEN=sk-placeholder claude
-```
+Requires `OPENROUTER_API_KEY=sk-or-...` in `.env` (see `.env.example`).
 
 ## Project Structure
 
